@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: sentiticket-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: sentiticket_password_123!
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - sentiticket-network
+
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: sentiticket-ml
+    restart: unless-stopped
+    environment:
+      - ML_SERVICE_SECRET=internal_cluster_shared_secret_44901924
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    networks:
+      - sentiticket-network
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sentiticket-server
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+      - ml-service
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGODB_URI=mongodb://admin:sentiticket_password_123!@mongodb:27017/sentiticket?authSource=admin
+      - JWT_ACCESS_SECRET=production_super_secure_access_secret_1234567890!@#$
+      - JWT_REFRESH_SECRET=production_super_secure_refresh_secret_1234567890!@#$
+      - MFA_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      - ML_SERVICE_URL=http://ml-service:8000
+      - ML_SERVICE_SECRET=internal_cluster_shared_secret_44901924
+      - CLIENT_ORIGIN=http://localhost:3000
+    ports:
+      - "5000:5000"
+    volumes:
+      - server_uploads:/app/uploads
+    networks:
+      - sentiticket-network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: sentiticket-client
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "3000:80"
+    networks:
+      - sentiticket-network
+
+volumes:
+  mongo_data:
+  server_uploads:
+
+networks:
+  sentiticket-network:
+    driver: bridge

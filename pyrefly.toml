@@ -1,0 +1,4 @@
+[tool.pyrefly]
+project-name = "SentiTicket-ML"
+python-version = "3.12"
+entrypoint = "ml-service/app/main.py"
